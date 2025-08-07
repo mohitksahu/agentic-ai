@@ -48,7 +48,6 @@ coverage.xml
 
 # Jupyter Notebook
 .ipynb_checkpoints
-*.ipynb
 
 # Environments
 .env
@@ -69,18 +68,41 @@ venv.bak/
 *.iws
 *.ipr
 
-# Project specific
+# Project specific - Large files and model data
 models/
-logs/
-*.log
-.DS_Store
+models/**/*
+**/*.bin
+**/*.onnx
+**/*.safetensors
+**/*.pt
+**/*.ckpt
+**/*.pth
+**/*.h5
+**/*.gguf
+**/*.h5
+**/checkpoint*/
 
 # HuggingFace cache
 .huggingface/
+.cache/
+**/__pycache__/
+**/*.py[cod]
 
-# Model files (these can be large)
-*.bin
-*.pt
-*.ckpt
-*.pth
-*.h5
+# Generated files and logs
+logs/
+*.log
+*.csv
+!data/test_budget.csv
+*/wandb/
+wandb/
+.DS_Store
+*.png
+*.jpg
+*.jpeg
+*.pdf
+!docs/*.pdf
+!examples/*.pdf
+
+# Keep main.ipynb but ignore other notebooks
+# *.ipynb
+# !main.ipynb
