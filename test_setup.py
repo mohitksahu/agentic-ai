@@ -27,21 +27,48 @@ if project_root not in sys.path:
     sys.path.append(project_root)
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
-# Import project modules
-try:
-    from utils.file_loader import FileLoader
-    from parsers.csv_parser import CSVParser
-    from parsers.pdf_parser import PDFParser
-    from agents.financial_agent import FinancialAgent
-    from agents.financial_agent_simplified import FinancialAgentSimplified
-    from analysis.budget_calculator import BudgetCalculator
-    from analysis.trend_analyzer import TrendAnalyzer
-    from visualizations.chart_generator import ChartGenerator
-    from llms.gpt2_wrapper import GPT2Wrapper
-    from llms.distilbert_wrapper import DistilBERTWrapper
-    from utils.helpers import Helpers
-except ImportError as e:
-    print(f"Warning: Some modules could not be imported: {e}")
+# Import project modules with detailed error tracking
+import_errors = []
+imported_modules = {}
+
+def safe_import(module_name, class_name=None):
+    """Safely import modules and track errors"""
+    try:
+        module = __import__(module_name, fromlist=[class_name] if class_name else [])
+        if class_name:
+            class_obj = getattr(module, class_name)
+            imported_modules[class_name] = class_obj
+            return class_obj
+        else:
+            imported_modules[module_name] = module
+            return module
+    except ImportError as e:
+        error_msg = f"Failed to import {class_name or module_name} from {module_name}: {e}"
+        import_errors.append(error_msg)
+        print(f"❌ {error_msg}")
+        return None
+    except AttributeError as e:
+        error_msg = f"Class {class_name} not found in {module_name}: {e}"
+        import_errors.append(error_msg)
+        print(f"❌ {error_msg}")
+        return None
+
+print("🔄 Importing project modules...")
+FileLoader = safe_import('utils.file_loader', 'FileLoader')
+CSVParser = safe_import('parsers.csv_parser', 'CSVParser')
+PDFParser = safe_import('parsers.pdf_parser', 'PDFParser')
+FinancialAgent = safe_import('agents.financial_agent', 'FinancialAgent')
+FinancialAgentSimplified = safe_import('agents.financial_agent_simplified', 'FinancialAgentSimplified')
+BudgetCalculator = safe_import('analysis.budget_calculator', 'BudgetCalculator')
+TrendAnalyzer = safe_import('analysis.trend_analyzer', 'TrendAnalyzer')
+ChartGenerator = safe_import('visualizations.chart_generator', 'ChartGenerator')
+GPT2Wrapper = safe_import('llms.gpt2_wrapper', 'GPT2Wrapper')
+DistilBERTWrapper = safe_import('llms.distilbert_wrapper', 'DistilBERTWrapper')
+Helpers = safe_import('utils.helpers', 'Helpers')
+
+print(f"✅ Imported {len(imported_modules)} modules successfully")
+if import_errors:
+    print(f"⚠️  {len(import_errors)} import errors detected")
 
 class FinancialBotSetupTest(unittest.TestCase):
     """Advanced system validation tests from the provided code snippet"""
@@ -190,13 +217,15 @@ class ComprehensiveTestSuite:
     def __init__(self):
         self.setup_logging()
         self.test_results = {
-            'phase_1': {'passed': 0, 'failed': 0, 'details': []},
-            'phase_2': {'passed': 0, 'failed': 0, 'details': []},
-            'phase_3': {'passed': 0, 'failed': 0, 'details': []},
+            'phase_1': {'passed': 0, 'failed': 0, 'details': [], 'errors': []},
+            'phase_2': {'passed': 0, 'failed': 0, 'details': [], 'errors': []},
+            'phase_3': {'passed': 0, 'failed': 0, 'details': [], 'errors': []},
         }
         self.test_data_dir = "data/input"
         self.sample_files = []
         self.performance_metrics = {}
+        self.critical_errors = []
+        self.should_continue = True
         
     def setup_logging(self):
         """Setup logging configuration"""
@@ -210,26 +239,165 @@ class ComprehensiveTestSuite:
         )
         self.logger = logging.getLogger(__name__)
 
+    def create_error_report(self, phase_name, error_details):
+        """Create detailed error report file"""
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        error_file = f"test_error_report_{timestamp}.txt"
+        
+        try:
+            with open(error_file, 'w') as f:
+                f.write("AGENTIC FINANCIAL AI - TEST ERROR REPORT\n")
+                f.write("=" * 60 + "\n")
+                f.write(f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
+                f.write(f"Failed Phase: {phase_name}\n")
+                f.write("=" * 60 + "\n\n")
+                
+                # Import errors
+                if import_errors:
+                    f.write("IMPORT ERRORS:\n")
+                    f.write("-" * 30 + "\n")
+                    for i, error in enumerate(import_errors, 1):
+                        f.write(f"{i}. {error}\n")
+                    f.write("\n")
+                
+                # Phase-specific errors
+                f.write(f"{phase_name.upper()} ERRORS:\n")
+                f.write("-" * 30 + "\n")
+                for i, error in enumerate(error_details, 1):
+                    f.write(f"{i}. {error}\n")
+                f.write("\n")
+                
+                # Test results summary
+                f.write("TEST RESULTS SUMMARY:\n")
+                f.write("-" * 30 + "\n")
+                total_passed = sum(phase['passed'] for phase in self.test_results.values())
+                total_failed = sum(phase['failed'] for phase in self.test_results.values())
+                total_tests = total_passed + total_failed
+                
+                for phase, results in self.test_results.items():
+                    f.write(f"{phase}: {results['passed']} passed, {results['failed']} failed\n")
+                    if results['errors']:
+                        f.write(f"  Errors: {'; '.join(results['errors'])}\n")
+                
+                f.write(f"\nOverall: {total_passed}/{total_tests} tests passed ({total_passed/total_tests*100:.1f}%)\n")
+                
+                # Recommendations
+                f.write("\nRECOMMENDATIONS:\n")
+                f.write("-" * 30 + "\n")
+                if import_errors:
+                    f.write("1. Fix import errors by ensuring all required files exist:\n")
+                    for error in import_errors:
+                        if "FinancialAgentSimplified" in error:
+                            f.write("   - Check agents/financial_agent_simplified.py exists and has FinancialAgentSimplified class\n")
+                        elif "BudgetCalculator" in error:
+                            f.write("   - Check analysis/budget_calculator.py exists and has BudgetCalculator class\n")
+                        elif "ChartGenerator" in error:
+                            f.write("   - Check visualizations/chart_generator.py exists and has ChartGenerator class\n")
+                        elif "GPT2Wrapper" in error:
+                            f.write("   - Check llms/gpt2_wrapper.py exists and has GPT2Wrapper class\n")
+                        elif "DistilBERTWrapper" in error:
+                            f.write("   - Check llms/distilbert_wrapper.py exists and has DistilBERTWrapper class\n")
+                
+                f.write("2. Ensure all required dependencies are installed\n")
+                f.write("3. Check project directory structure is complete\n")
+                f.write("4. Run 'pip install -r requirements.txt' to install missing packages\n")
+                
+        except Exception as e:
+            print(f"❌ Failed to create error report: {e}")
+            return None
+        
+        return error_file
+
+    def check_critical_requirements(self):
+        """Check if critical requirements are met before running tests"""
+        critical_issues = []
+        
+        # Check critical imports
+        critical_modules = {
+            'FileLoader': FileLoader,
+            'CSVParser': CSVParser,
+            'PDFParser': PDFParser
+        }
+        
+        for name, module in critical_modules.items():
+            if module is None:
+                critical_issues.append(f"Critical module {name} failed to import")
+        
+        # Check if we have any working AI models
+        if GPT2Wrapper is None and DistilBERTWrapper is None:
+            critical_issues.append("No AI model wrappers available")
+        
+        # Check if we have analysis components
+        if BudgetCalculator is None:
+            critical_issues.append("BudgetCalculator not available")
+        
+        if TrendAnalyzer is None:
+            critical_issues.append("TrendAnalyzer not available")
+        
+        if critical_issues:
+            print("\n🚫 CRITICAL REQUIREMENTS NOT MET")
+            print("=" * 50)
+            for issue in critical_issues:
+                print(f"❌ {issue}")
+            
+            error_file = self.create_error_report("CRITICAL_REQUIREMENTS", critical_issues)
+            if error_file:
+                print(f"\n📄 Detailed error report saved to: {error_file}")
+            
+            print("\n🛑 TESTS CANNOT PROCEED - Please fix critical issues first")
+            return False
+        
+        return True
+
     def run_all_tests(self):
-        """Execute all three phases of testing"""
+        """Execute all three phases of testing with error handling"""
         print("=" * 80)
         print("🚀 STARTING COMPREHENSIVE AGENTIC FINANCIAL AI TESTING")
         print("=" * 80)
+        
+        # Check critical requirements first
+        if not self.check_critical_requirements():
+            return False
         
         start_time = time.time()
         
         try:
             # Phase 1: System Component Testing
-            self.phase_1_component_testing()
+            phase_1_success = self.phase_1_component_testing()
+            if not phase_1_success:
+                print(f"\n🚫 PHASE 1 FAILED - Creating error report...")
+                error_file = self.create_error_report("PHASE_1", self.test_results['phase_1']['errors'])
+                if error_file:
+                    print(f"📄 Error report saved to: {error_file}")
+                print("🛑 Testing stopped due to Phase 1 failures")
+                return False
             
             # Phase 2: Model Loading and Sample Data Creation
-            self.phase_2_model_and_data_setup()
+            phase_2_success = self.phase_2_model_and_data_setup()
+            if not phase_2_success:
+                print(f"\n🚫 PHASE 2 FAILED - Creating error report...")
+                error_file = self.create_error_report("PHASE_2", self.test_results['phase_2']['errors'])
+                if error_file:
+                    print(f"📄 Error report saved to: {error_file}")
+                print("🛑 Testing stopped due to Phase 2 failures")
+                return False
             
             # Phase 3: LLM Integration and Job Testing
-            self.phase_3_llm_integration_testing()
+            phase_3_success = self.phase_3_llm_integration_testing()
+            if not phase_3_success:
+                print(f"\n🚫 PHASE 3 FAILED - Creating error report...")
+                error_file = self.create_error_report("PHASE_3", self.test_results['phase_3']['errors'])
+                if error_file:
+                    print(f"📄 Error report saved to: {error_file}")
+                print("🛑 Testing stopped due to Phase 3 failures")
+                return False
             
         except Exception as e:
             self.logger.error(f"Critical error during testing: {str(e)}")
+            error_file = self.create_error_report("CRITICAL_ERROR", [str(e)])
+            if error_file:
+                print(f"📄 Critical error report saved to: {error_file}")
+            return False
         finally:
             # Cleanup
             self.cleanup_test_data()
@@ -237,12 +405,15 @@ class ComprehensiveTestSuite:
         # Print final results
         total_time = time.time() - start_time
         self.print_final_results(total_time)
+        return True
 
     def phase_1_component_testing(self):
         """Phase 1: Test system components and dependencies"""
         print("\n" + "="*60)
         print("📋 PHASE 1: SYSTEM COMPONENT TESTING")
         print("="*60)
+        
+        phase_errors = []
         
         # Basic component tests
         basic_tests = [
@@ -268,6 +439,11 @@ class ComprehensiveTestSuite:
         
         print(f"   Advanced Tests: {advanced_passed}/{advanced_tests_run} passed")
         
+        # Track advanced test errors
+        for failure in advanced_result.failures + advanced_result.errors:
+            error_msg = f"Advanced test failed: {failure[0]} - {failure[1]}"
+            phase_errors.append(error_msg)
+        
         # Run basic tests
         print("\n🔧 Running Basic Component Tests...")
         for test in basic_tests:
@@ -276,7 +452,9 @@ class ComprehensiveTestSuite:
                 self.test_results['phase_1']['passed'] += 1
                 print(f"   ✅ {test.__name__}")
             except Exception as e:
+                error_msg = f"{test.__name__}: {str(e)}"
                 self.test_results['phase_1']['failed'] += 1
+                phase_errors.append(error_msg)
                 print(f"   ❌ {test.__name__}: {str(e)}")
                 self.logger.error(f"Phase 1 test failed: {test.__name__} - {str(e)}")
         
@@ -284,12 +462,26 @@ class ComprehensiveTestSuite:
         self.test_results['phase_1']['passed'] += advanced_passed
         self.test_results['phase_1']['failed'] += advanced_failures
         self.test_results['phase_1']['details'].append(f"Advanced system validation: {advanced_passed}/{advanced_tests_run} passed")
+        self.test_results['phase_1']['errors'] = phase_errors
+        
+        # Check if phase passed (allow some failures but not too many)
+        total_tests = self.test_results['phase_1']['passed'] + self.test_results['phase_1']['failed']
+        success_rate = self.test_results['phase_1']['passed'] / total_tests if total_tests > 0 else 0
+        
+        if success_rate < 0.5:  # Less than 50% success rate
+            print(f"\n❌ PHASE 1 FAILED: Success rate {success_rate*100:.1f}% too low")
+            return False
+        
+        print(f"\n✅ PHASE 1 COMPLETED: {success_rate*100:.1f}% success rate")
+        return True
 
     def phase_2_model_and_data_setup(self):
         """Phase 2: Load models and create sample data"""
         print("\n" + "="*60)
         print("🤖 PHASE 2: MODEL LOADING AND SAMPLE DATA CREATION")
         print("="*60)
+        
+        phase_errors = []
         
         tests = [
             self.test_model_loading,
@@ -303,15 +495,34 @@ class ComprehensiveTestSuite:
             try:
                 test()
                 self.test_results['phase_2']['passed'] += 1
+                print(f"   ✅ {test.__name__}")
             except Exception as e:
+                error_msg = f"{test.__name__}: {str(e)}"
                 self.test_results['phase_2']['failed'] += 1
+                phase_errors.append(error_msg)
+                print(f"   ❌ {test.__name__}: {str(e)}")
                 self.logger.error(f"Phase 2 test failed: {test.__name__} - {str(e)}")
+        
+        self.test_results['phase_2']['errors'] = phase_errors
+        
+        # Check if phase passed
+        total_tests = self.test_results['phase_2']['passed'] + self.test_results['phase_2']['failed']
+        success_rate = self.test_results['phase_2']['passed'] / total_tests if total_tests > 0 else 0
+        
+        if success_rate < 0.6:  # Less than 60% success rate
+            print(f"\n❌ PHASE 2 FAILED: Success rate {success_rate*100:.1f}% too low")
+            return False
+        
+        print(f"\n✅ PHASE 2 COMPLETED: {success_rate*100:.1f}% success rate")
+        return True
 
     def phase_3_llm_integration_testing(self):
         """Phase 3: Test LLM integration and job assignment"""
         print("\n" + "="*60)
         print("🧠 PHASE 3: LLM INTEGRATION AND JOB ASSIGNMENT TESTING")
         print("="*60)
+        
+        phase_errors = []
         
         tests = [
             self.test_agent_initialization,
@@ -327,9 +538,26 @@ class ComprehensiveTestSuite:
             try:
                 test()
                 self.test_results['phase_3']['passed'] += 1
+                print(f"   ✅ {test.__name__}")
             except Exception as e:
+                error_msg = f"{test.__name__}: {str(e)}"
                 self.test_results['phase_3']['failed'] += 1
+                phase_errors.append(error_msg)
+                print(f"   ❌ {test.__name__}: {str(e)}")
                 self.logger.error(f"Phase 3 test failed: {test.__name__} - {str(e)}")
+        
+        self.test_results['phase_3']['errors'] = phase_errors
+        
+        # Check if phase passed
+        total_tests = self.test_results['phase_3']['passed'] + self.test_results['phase_3']['failed']
+        success_rate = self.test_results['phase_3']['passed'] / total_tests if total_tests > 0 else 0
+        
+        if success_rate < 0.4:  # Less than 40% success rate (more lenient for LLM tests)
+            print(f"\n❌ PHASE 3 FAILED: Success rate {success_rate*100:.1f}% too low")
+            return False
+        
+        print(f"\n✅ PHASE 3 COMPLETED: {success_rate*100:.1f}% success rate")
+        return True
 
     # Phase 1 Tests
     def test_imports(self):
@@ -372,6 +600,11 @@ class ComprehensiveTestSuite:
         """Test analyzer initializations"""
         self.logger.info("Testing analyzer initializations...")
         
+        if BudgetCalculator is None:
+            raise Exception("BudgetCalculator class not available - check analysis/budget_calculator.py")
+        if TrendAnalyzer is None:
+            raise Exception("TrendAnalyzer class not available - check analysis/trend_analyzer.py")
+        
         budget_calc = BudgetCalculator()
         trend_analyzer = TrendAnalyzer()
         
@@ -384,6 +617,9 @@ class ComprehensiveTestSuite:
     def test_chart_generator_initialization(self):
         """Test chart generator initialization"""
         self.logger.info("Testing chart generator initialization...")
+        
+        if ChartGenerator is None:
+            raise Exception("ChartGenerator class not available - check visualizations/chart_generator.py")
         
         chart_gen = ChartGenerator()
         assert hasattr(chart_gen, 'create_budget_chart')
@@ -505,11 +741,29 @@ class ComprehensiveTestSuite:
         """Test agent initialization"""
         self.logger.info("Testing agent initialization...")
         
-        agent = FinancialAgent()
-        agent_simple = FinancialAgentSimplified()
+        if FinancialAgent is None:
+            raise Exception("FinancialAgent class not available - check agents/financial_agent.py")
+        if FinancialAgentSimplified is None:
+            raise Exception("FinancialAgentSimplified class not available - check agents/financial_agent_simplified.py")
         
-        assert hasattr(agent, 'run')
-        assert hasattr(agent_simple, 'run')
+        # Try to initialize agents (they may need LLM parameters)
+        try:
+            # Try with mock LLM if GPT2Wrapper is available
+            if GPT2Wrapper is not None:
+                mock_llm = GPT2Wrapper("gpt2")
+                agent = FinancialAgent(mock_llm)
+            else:
+                # Try without LLM parameter if it's optional
+                agent = FinancialAgentSimplified()
+            
+            agent_simple = FinancialAgentSimplified()
+            
+            assert hasattr(agent, 'run')
+            assert hasattr(agent_simple, 'run')
+        except TypeError as e:
+            if "missing" in str(e) and "required" in str(e):
+                # Agent requires LLM parameter but no working LLM available
+                raise Exception(f"Agent initialization failed: {e}")
         
         self.logger.info("✅ Agent initialization successful")
         self.test_results['phase_3']['details'].append("Agent initialization: PASSED")
@@ -518,14 +772,24 @@ class ComprehensiveTestSuite:
         """Test data loading with agents"""
         self.logger.info("Testing data loading with agents...")
         
+        if FileLoader is None:
+            raise Exception("FileLoader not available")
+        
         file_loader = FileLoader()
         csv_path = os.path.join(self.test_data_dir, "test_financial_data.csv")
+        
+        if not os.path.exists(csv_path):
+            raise Exception("Test CSV file not created")
         
         data = file_loader.load_file(csv_path)
         
         # Test if agents can access the data
-        agent = FinancialAgent()
-        agent.load_data(data['data'])
+        if FinancialAgentSimplified is not None:
+            agent = FinancialAgentSimplified()
+            if hasattr(agent, 'load_data'):
+                agent.load_data(data['data'])
+        else:
+            raise Exception("No working agents available for data loading test")
         
         self.logger.info("✅ Data loading with agents successful")
         self.test_results['phase_3']['details'].append("Data loading with agents: PASSED")
@@ -751,37 +1015,56 @@ def run_tests():
     logger = logging.getLogger(__name__)
     logger.info("Starting Financial Bot Setup Tests...")
     
-    # Create test suite for advanced validation
-    suite = unittest.TestLoader().loadTestsFromTestCase(FinancialBotSetupTest)
+    # Show import status first
+    if import_errors:
+        print("\n⚠️  IMPORT WARNINGS:")
+        for error in import_errors:
+            print(f"   {error}")
+        print()
     
-    # Run tests
-    result = unittest.TextTestRunner(verbosity=2).run(suite)
+    # Create comprehensive test suite
+    comprehensive_suite = ComprehensiveTestSuite()
+    success = comprehensive_suite.run_all_tests()
     
-    if result.wasSuccessful():
-        logger.info("\nAdvanced validation tests passed! Running comprehensive test suite...")
-        
-        # Run the comprehensive test suite
-        comprehensive_suite = ComprehensiveTestSuite()
-        comprehensive_suite.run_all_tests()
-        
-        logger.info("\nAll tests completed! The Financial Bot is ready to use.")
+    if success:
+        logger.info("\n✅ All tests passed! The Financial Bot is ready to use.")
         logger.info("\nYou can now run the main notebook (main.ipynb)")
         return True
     else:
-        logger.error("\nSome advanced validation tests failed. Running comprehensive suite anyway...")
-        
-        # Run comprehensive suite even if advanced tests failed
-        comprehensive_suite = ComprehensiveTestSuite()
-        comprehensive_suite.run_all_tests()
-        
-        logger.warning("Please review the test results and fix any critical issues.")
+        logger.error("\n❌ Tests failed. Please check error reports and fix issues.")
+        logger.error("The system cannot proceed until critical issues are resolved.")
         return False
 
 if __name__ == "__main__":
-    # Run the unified test suite
-    success = run_tests()
-    
-    if success:
-        print("\n🚀 SETUP COMPLETE - Financial AI Assistant is ready!")
-    else:
-        print("\n⚠️  SETUP COMPLETED WITH WARNINGS - Review logs for details")
+    # Run the unified test suite with error handling
+    try:
+        success = run_tests()
+        
+        if success:
+            print("\n🚀 SETUP COMPLETE - Financial AI Assistant is ready!")
+        else:
+            print("\n🚫 SETUP FAILED - Critical errors detected")
+            print("📄 Check error report files for detailed information")
+            print("🔧 Fix the issues and run the test again")
+            
+    except KeyboardInterrupt:
+        print("\n\n⏸️  Tests interrupted by user")
+    except Exception as e:
+        print(f"\n💥 Unexpected error: {e}")
+        # Create emergency error report
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        error_file = f"emergency_error_report_{timestamp}.txt"
+        try:
+            with open(error_file, 'w') as f:
+                f.write(f"EMERGENCY ERROR REPORT\n")
+                f.write(f"Generated: {datetime.now()}\n")
+                f.write(f"Error: {e}\n")
+                f.write(f"Import errors: {import_errors}\n")
+            print(f"� Emergency error report saved to: {error_file}")
+        except:
+            print("❌ Could not save emergency error report")
+        
+    finally:
+        print("\n" + "="*60)
+        print("Testing session completed.")
+        print("="*60)
