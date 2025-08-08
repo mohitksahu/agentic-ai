@@ -1,17 +1,34 @@
-langchain>=0.0.250
+# Core AI and Data Processing Libraries
 transformers>=4.31.0
 torch>=2.0.1
 pandas>=2.0.3
 numpy>=1.24.3
 plotly>=5.15.0
+matplotlib>=3.7.0
+
+# File Processing Libraries
 pypdf2>=3.0.1
+PyPDF2>=3.0.1
+openpyxl>=3.1.0
+tabula-py>=2.7.0
+pdfplumber>=0.9.0
+
+# Utility Libraries
 python-dotenv>=1.0.0
-streamlit>=1.25.0
 jupyter>=1.0.0
+notebook>=7.0.0
+ipywidgets>=8.0.0
 huggingface-hub>=0.16.4
-sentence-transformers>=2.2.2
-chromadb>=0.4.3
-pydantic>=2.1.1
-# Added for specific models
 tokenizers>=0.13.3
 psutil>=5.9.5
+
+# Data Analysis and Visualization
+seaborn>=0.12.0
+scipy>=1.11.0
+scikit-learn>=1.3.0
+
+# Optional Advanced Libraries (for future expansion)
+langchain>=0.0.250
+sentence-transformers>=2.2.2
+streamlit>=1.25.0
+pydantic>=2.1.1

@@ -166,12 +166,12 @@ class FinancialAgent:
             return "Please provide a valid number for monthly income"
 
     def run(self, query: str) -> str:
-        """Run the agent with a user query"""
+        """Run the RAG-enhanced agent with a user query"""
         try:
             # Add user query to memory
             self.memory.add_user_message(query)
             
-            # Simple keyword-based tool selection
+            # RAG-enhanced query processing
             result = None
             
             if "process" in query.lower() and "document" in query.lower():
@@ -189,29 +189,44 @@ class FinancialAgent:
             
             elif "analyze" in query.lower() and "budget" in query.lower():
                 if not self.current_data:
-                    result = "Please load financial data first using 'Process the document' command."
+                    result = "I need your financial data first. Please upload and process your CSV or PDF files."
                 elif not self.monthly_income:
-                    result = "Please set monthly income first using 'Set monthly income to X' command."
+                    result = "Please set your monthly income first so I can analyze your budget properly."
                 else:
                     result = self._analyze_budget({"income": self.monthly_income, "data": self.current_data})
             
-            elif "trend" in query.lower() or "analyze trends" in query.lower():
+            elif "trend" in query.lower() or "pattern" in query.lower():
                 if not self.current_data:
-                    result = "Please load financial data first using 'Process the document' command."
+                    result = "I need your financial data to analyze trends. Please upload your CSV or PDF files first."
                 else:
                     result = self._analyze_trends(self.current_data)
             
-            elif "visualization" in query.lower() or "chart" in query.lower():
+            elif "visualization" in query.lower() or "chart" in query.lower() or "graph" in query.lower():
                 if not self.current_data:
-                    result = "Please load financial data first using 'Process the document' command."
+                    result = "I need your financial data to create visualizations. Please upload your files first."
                 else:
                     result = self._generate_visualization(self.current_data)
             
             else:
-                # Default: just ask the LLM
-                history_text = self.memory.buffer
-                prompt = f"Financial assistant conversation:\n{history_text}\nBased on the above conversation, please provide a helpful response to the latest query: {query}"
-                result = self.llm(prompt)
+                # RAG-enhanced response: Use loaded data context
+                if self.current_data is not None:
+                    # Create data context for the LLM
+                    data_summary = self._get_data_context()
+                    history_text = self.memory.buffer
+                    prompt = f"""You are a financial assistant with access to the user's actual financial data.
+
+Data Context:
+{data_summary}
+
+Conversation History:
+{history_text}
+
+Based on the user's actual financial data and conversation history, provide a helpful response to: {query}
+
+Focus on insights from their real data. If the query is about spending, categories, amounts, or patterns, reference the actual data provided above."""
+                    result = self.llm(prompt)
+                else:
+                    result = "I don't have access to your financial data yet. Please upload and process your CSV or PDF files first, then I can provide personalized insights based on your actual spending patterns."
             
             # Add result to memory
             self.memory.add_ai_message(result)
@@ -221,3 +236,25 @@ class FinancialAgent:
             error_msg = f"I encountered an error: {str(e)}\nPlease try rephrasing your question."
             self.memory.add_ai_message(error_msg)
             return error_msg
+    
+    def _get_data_context(self) -> str:
+        """Generate a summary of the current financial data for RAG context"""
+        if not self.current_data:
+            return "No financial data loaded."
+        
+        try:
+            df = self.current_data['data']
+            summary = self.current_data['summary']
+            
+            context = f"""Financial Data Summary:
+- Total transactions: {len(df)}
+- Date range: {summary.get('date_range', 'Unknown')}
+- Total amount: ${summary.get('total_amount', 0):,.2f}
+- Categories: {', '.join(summary.get('categories', []))}
+- Top spending categories: {df.groupby('category')['amount'].sum().nlargest(3).to_dict()}
+- Average transaction: ${df['amount'].mean():.2f}
+- Recent transactions: {df.tail(3)[['date', 'category', 'amount']].to_string()}"""
+            
+            return context
+        except Exception as e:
+            return f"Error generating data context: {str(e)}"

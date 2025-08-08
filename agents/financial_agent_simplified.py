@@ -44,19 +44,19 @@ class FinancialAgent:
     
     def run(self, query: str) -> str:
         """
-        Process a user query and return a response
+        Process a user query with RAG-enhanced responses
         
         Args:
             query (str): User's query
             
         Returns:
-            str: Agent's response
+            str: Agent's response based on actual user data
         """
         try:
             # Add query to history
             self.chat_history.append(f"User: {query}")
             
-            # Simple keyword-based tool selection
+            # RAG-enhanced query processing
             result = None
             
             if "process" in query.lower() and "document" in query.lower():
@@ -74,29 +74,43 @@ class FinancialAgent:
             
             elif "analyze" in query.lower() and "budget" in query.lower():
                 if not self.current_data:
-                    result = "Please load financial data first using 'Process the document' command."
+                    result = "I need your financial data first. Please upload and process your CSV or PDF files so I can analyze your actual spending patterns."
                 elif not self.monthly_income:
-                    result = "Please set monthly income first using 'Set monthly income to X' command."
+                    result = "Please set your monthly income first so I can provide accurate budget analysis based on your data."
                 else:
                     result = self._analyze_budget({"income": self.monthly_income, "data": self.current_data})
             
-            elif "trend" in query.lower() or "analyze trends" in query.lower():
+            elif "trend" in query.lower() or "pattern" in query.lower():
                 if not self.current_data:
-                    result = "Please load financial data first using 'Process the document' command."
+                    result = "I need your financial data to analyze trends and patterns. Please upload your CSV or PDF files first."
                 else:
                     result = self._analyze_trends(self.current_data)
             
-            elif "visualization" in query.lower() or "chart" in query.lower():
+            elif "visualization" in query.lower() or "chart" in query.lower() or "graph" in query.lower():
                 if not self.current_data:
-                    result = "Please load financial data first using 'Process the document' command."
+                    result = "I need your financial data to create visualizations. Please upload your files first."
                 else:
                     result = self._generate_visualization(self.current_data)
             
             else:
-                # Default: just ask the LLM
-                history_text = "\n".join(self.chat_history[-5:])  # Last 5 exchanges
-                prompt = f"Financial assistant conversation:\n{history_text}\n\nBased on the above conversation, please provide a helpful response to the latest query."
-                result = self.llm.generate(prompt)
+                # RAG-enhanced response using actual user data
+                if self.current_data is not None:
+                    # Create data context for the LLM
+                    data_context = self._get_data_context()
+                    history_text = "\n".join(self.chat_history[-5:])  # Last 5 exchanges
+                    prompt = f"""You are a financial assistant with access to the user's actual financial data.
+
+User's Financial Data Context:
+{data_context}
+
+Recent Conversation:
+{history_text}
+
+Based on the user's actual financial data shown above, provide a helpful and specific response to their query. Reference their real spending patterns, categories, and amounts when relevant."""
+                    
+                    result = self.llm.generate(prompt)
+                else:
+                    result = "I don't have access to your financial data yet. Please upload and process your CSV or PDF files first. Once loaded, I can provide personalized insights based on your actual spending patterns and help answer specific questions about your finances."
             
             # Add result to history
             self.chat_history.append(f"Assistant: {result}")
@@ -104,7 +118,48 @@ class FinancialAgent:
             
         except Exception as e:
             logger.error(f"Error processing query: {str(e)}")
-            return f"Sorry, I encountered an error: {str(e)}"
+            return f"Sorry, I encountered an error while processing your request: {str(e)}. Please make sure your financial data is properly loaded."
+    
+    def _get_data_context(self) -> str:
+        """Generate a summary of the current financial data for RAG context"""
+        if not self.current_data:
+            return "No financial data loaded."
+        
+        try:
+            df = self.current_data['data']
+            
+            # Generate comprehensive data context
+            total_transactions = len(df)
+            date_range = f"{df['date'].min()} to {df['date'].max()}"
+            total_amount = df['amount'].sum()
+            categories = df['category'].value_counts().head(5)
+            
+            # Recent transactions
+            recent_transactions = df.tail(5)[['date', 'category', 'amount']].to_string(index=False)
+            
+            # Monthly spending pattern
+            df['month'] = pd.to_datetime(df['date']).dt.to_period('M')
+            monthly_spending = df.groupby('month')['amount'].sum().tail(3)
+            
+            context = f"""Transaction Summary:
+- Total transactions: {total_transactions}
+- Date range: {date_range}
+- Total spending: ${total_amount:,.2f}
+- Average per transaction: ${total_amount/total_transactions:.2f}
+
+Top 5 Categories:
+{categories.to_string()}
+
+Recent 5 Transactions:
+{recent_transactions}
+
+Last 3 Months Spending:
+{monthly_spending.to_string()}"""
+            
+            return context
+        except Exception as e:
+            logger.error(f"Error generating data context: {str(e)}")
+            return f"Error accessing financial data: {str(e)}"
 
     def _analyze_budget(self, data: Dict[str, Any]) -> str:
         """Analyze budget data"""
