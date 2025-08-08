@@ -1,15 +1,34 @@
 from typing import List, Dict, Any
 import os
 import pandas as pd
-from typing import List, Dict, Any
-import os
-import pandas as pd
+import logging
 
 from analysis.budget_calculator import BudgetCalculator
 from analysis.trend_analyzer import TrendAnalyzer
 from visualizations.chart_generator import ChartGenerator
 from utils.file_loader import FileLoader
 from utils.helpers import Helpers
+
+# Define a simple Tool class to maintain compatibility
+class Tool:
+    def __init__(self, name, func, description):
+        self.name = name
+        self.func = func
+        self.description = description
+
+# Define a simple memory class for compatibility
+class ConversationBufferMemory:
+    def __init__(self, memory_key="chat_history"):
+        self.memory_key = memory_key
+        self.buffer = ""
+    
+    def add_user_message(self, message):
+        self.buffer += f"User: {message}\n"
+    
+    def add_ai_message(self, message):
+        self.buffer += f"AI: {message}\n"
+
+logger = logging.getLogger(__name__)
 
 class FinancialAgent:
     def __init__(self, llm):
@@ -24,7 +43,6 @@ class FinancialAgent:
         
         # Setup tools and agent
         self.tools = self._setup_tools()
-        self.agent_executor = self._setup_agent()
         
         # Initialize helper utilities
         Helpers.setup_logging()
@@ -64,35 +82,11 @@ class FinancialAgent:
         ]
         return tools
 
-    def _setup_agent(self) -> AgentExecutor:
-        """Setup the agent executor"""
-        
-        # Create a simplified agent that just uses the LLM directly
-        class SimpleLLMChain:
-            def __init__(self, llm, memory):
-                self.llm = llm
-                self.memory = memory
-                
-            def run(self, query):
-                context = self.memory.buffer
-                prompt = f"Answer the question based on the context below.\n\nContext: {context}\n\nQuestion: {query}\n\nAnswer:"
-                return self.llm(prompt)
-        
-        # Create a simple chain
-        chain = SimpleLLMChain(self.llm, self.memory)
-        
-        # Create the agent
-        agent = LLMSingleActionAgent(
-            llm_chain=chain,
-            tools=self.tools,
-            max_iterations=3
-        )
-        
-        return AgentExecutor.from_agent_and_tools(
-            agent=agent,
-            tools=self.tools,
-            memory=self.memory
-        )
+    def _setup_agent(self):
+        """Create a simple agent executor replacement"""
+        # This is now just a stub since we're implementing the agent logic directly
+        # in the run method instead of using LangChain components
+        return None
 
     def _analyze_budget(self, data: Dict[str, Any]) -> str:
         """Analyze budget data"""
@@ -174,6 +168,56 @@ class FinancialAgent:
     def run(self, query: str) -> str:
         """Run the agent with a user query"""
         try:
-            return self.agent_executor.run(query)
+            # Add user query to memory
+            self.memory.add_user_message(query)
+            
+            # Simple keyword-based tool selection
+            result = None
+            
+            if "process" in query.lower() and "document" in query.lower():
+                # Extract file path from query
+                file_path = query.split("Process the document ")[-1].strip()
+                result = self._process_document(file_path)
+            
+            elif "set" in query.lower() and "income" in query.lower():
+                # Extract income amount from query
+                try:
+                    amount = float(''.join(filter(lambda i: i.isdigit() or i == '.', query)))
+                    result = self._set_monthly_income(amount)
+                except:
+                    result = "Could not parse income amount. Please provide a valid number."
+            
+            elif "analyze" in query.lower() and "budget" in query.lower():
+                if not self.current_data:
+                    result = "Please load financial data first using 'Process the document' command."
+                elif not self.monthly_income:
+                    result = "Please set monthly income first using 'Set monthly income to X' command."
+                else:
+                    result = self._analyze_budget({"income": self.monthly_income, "data": self.current_data})
+            
+            elif "trend" in query.lower() or "analyze trends" in query.lower():
+                if not self.current_data:
+                    result = "Please load financial data first using 'Process the document' command."
+                else:
+                    result = self._analyze_trends(self.current_data)
+            
+            elif "visualization" in query.lower() or "chart" in query.lower():
+                if not self.current_data:
+                    result = "Please load financial data first using 'Process the document' command."
+                else:
+                    result = self._generate_visualization(self.current_data)
+            
+            else:
+                # Default: just ask the LLM
+                history_text = self.memory.buffer
+                prompt = f"Financial assistant conversation:\n{history_text}\nBased on the above conversation, please provide a helpful response to the latest query: {query}"
+                result = self.llm(prompt)
+            
+            # Add result to memory
+            self.memory.add_ai_message(result)
+            return result
+            
         except Exception as e:
-            return f"I encountered an error: {str(e)}\nPlease try rephrasing your question."
+            error_msg = f"I encountered an error: {str(e)}\nPlease try rephrasing your question."
+            self.memory.add_ai_message(error_msg)
+            return error_msg
