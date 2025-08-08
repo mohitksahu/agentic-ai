@@ -65,13 +65,13 @@ class CSVParser:
 
     def _read_csv_robust(self, file_path: str) -> Optional[pd.DataFrame]:
         """Try multiple encoding and separator combinations to read CSV"""
-        encodings = ['utf-8', 'latin-1', 'iso-8859-1', 'cp1252']
+        encodings = ['utf-8', 'utf-8-sig', 'utf-16', 'utf-16le', 'utf-16be', 'latin-1', 'iso-8859-1', 'cp1252']
         separators = [',', ';', '\t', '|']
         
         for encoding in encodings:
             for sep in separators:
                 try:
-                    df = pd.read_csv(file_path, encoding=encoding, separator=sep, 
+                    df = pd.read_csv(file_path, encoding=encoding, sep=sep, 
                                    skip_blank_lines=True, na_values=['', 'N/A', 'NULL', 'nan'])
                     
                     # Check if we got meaningful data

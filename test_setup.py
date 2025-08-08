@@ -21,6 +21,16 @@ import unittest
 from huggingface_hub import hf_hub_download
 import torch
 
+# Set up logging with proper encoding to avoid Unicode errors
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.FileHandler('test_results.log', encoding='utf-8'),
+        logging.StreamHandler(sys.stdout)
+    ]
+)
+
 # Add project root to path
 project_root = str(Path().absolute())
 if project_root not in sys.path:
@@ -63,7 +73,7 @@ BudgetCalculator = safe_import('analysis.budget_calculator', 'BudgetCalculator')
 TrendAnalyzer = safe_import('analysis.trend_analyzer', 'TrendAnalyzer')
 ChartGenerator = safe_import('visualizations.chart_generator', 'ChartGenerator')
 GPT2Wrapper = safe_import('llms.gpt2_wrapper', 'GPT2Wrapper')
-DistilBERTWrapper = safe_import('llms.distilbert_wrapper', 'DistilBertWrapper')  # Correct class name
+DistilBertWrapper = safe_import('llms.distilbert_wrapper', 'DistilBertWrapper')  # Correct class name
 Helpers = safe_import('utils.helpers', 'Helpers')
 
 print(f"✅ Imported {len(imported_modules)} modules successfully")
@@ -88,8 +98,8 @@ class FinancialBotSetupTest(unittest.TestCase):
         if not os.path.exists(cls.test_csv_path):
             cls._create_test_csv()
 
-    @staticmethod
-    def _create_test_csv():
+    @classmethod
+    def _create_test_csv(cls):
         """Create a test CSV file with sample data"""
         data = {
             'date': pd.date_range(start='2025-01-01', periods=10),
@@ -99,7 +109,10 @@ class FinancialBotSetupTest(unittest.TestCase):
                         'Transport', 'Utilities', 'Entertainment']
         }
         df = pd.DataFrame(data)
-        df.to_csv(os.path.join(project_root, 'data', 'test_budget.csv'), index=False)
+        # Make sure directory exists
+        os.makedirs(os.path.dirname(cls.test_csv_path), exist_ok=True)
+        df.to_csv(cls.test_csv_path, index=False)
+        print(f"✅ Test CSV created at: {cls.test_csv_path}")
 
     def test_01_system_requirements(self):
         """Test system requirements"""
@@ -173,13 +186,13 @@ class FinancialBotSetupTest(unittest.TestCase):
                     logging.warning(f"GPT2Wrapper initialization skipped: {str(e)}")
             
             # Test DistilBERT wrapper initialization (if available)
-            if DistilBERTWrapper is not None:
+            if DistilBertWrapper is not None:
                 try:
-                    distilbert_model = DistilBERTWrapper("distilbert-base-uncased")
+                    distilbert_model = DistilBertWrapper("distilbert-base-uncased")
                     self.assertIsNotNone(distilbert_model, "Failed to initialize DistilBERT model")
-                    logging.info("✅ DistilBERTWrapper initialized successfully")
+                    logging.info("✅ DistilBertWrapper initialized successfully")
                 except Exception as e:
-                    logging.warning(f"DistilBERTWrapper initialization skipped: {str(e)}")
+                    logging.warning(f"DistilBertWrapper initialization skipped: {str(e)}")
             
             # Test agent creation (if classes are available)
             if FinancialAgentSimplified is not None:
@@ -345,8 +358,8 @@ class ComprehensiveTestSuite:
                             f.write("   - Check visualizations/chart_generator.py exists and has ChartGenerator class\n")
                         elif "GPT2Wrapper" in error:
                             f.write("   - Check llms/gpt2_wrapper.py exists and has GPT2Wrapper class\n")
-                        elif "DistilBERTWrapper" in error:
-                            f.write("   - Check llms/distilbert_wrapper.py exists and has DistilBERTWrapper class\n")
+                        elif "DistilBertWrapper" in error:
+                            f.write("   - Check llms/distilbert_wrapper.py exists and has DistilBertWrapper class\n")
                 
                 f.write("2. Ensure all required dependencies are installed\n")
                 f.write("3. Check project directory structure is complete\n")
@@ -374,7 +387,7 @@ class ComprehensiveTestSuite:
                 critical_issues.append(f"Critical module {name} failed to import")
         
         # Check if we have any working AI models
-        if GPT2Wrapper is None and DistilBERTWrapper is None:
+        if GPT2Wrapper is None and DistilBertWrapper is None:
             critical_issues.append("No AI model wrappers available")
         
         # Check if we have analysis components
@@ -440,6 +453,8 @@ class ComprehensiveTestSuite:
                 if error_file:
                     print(f"📄 Error report saved to: {error_file}")
                 print("🛑 Testing stopped due to Phase 3 failures")
+                # Cleanup before returning
+                self.cleanup_test_data()
                 return False
             
         except Exception as e:
@@ -447,11 +462,13 @@ class ComprehensiveTestSuite:
             error_file = self.create_error_report("CRITICAL_ERROR", [str(e)])
             if error_file:
                 print(f"📄 Critical error report saved to: {error_file}")
-            return False
-        finally:
-            # Cleanup
+            # Cleanup before returning
             self.cleanup_test_data()
-            
+            return False
+        
+        # Only cleanup after all tests are successful
+        self.cleanup_test_data()
+        
         # Print final results
         total_time = time.time() - start_time
         self.print_final_results(total_time)
@@ -721,7 +738,7 @@ class ComprehensiveTestSuite:
         try:
             # Test importing model wrappers
             from llms.gpt2_wrapper import GPT2Wrapper
-            from llms.distilbert_wrapper import DistilBERTWrapper
+            from llms.distilbert_wrapper import DistilBertWrapper
             
             # Note: We're not actually loading the models to avoid resource consumption
             # Just testing if the classes can be imported
@@ -804,15 +821,24 @@ class ComprehensiveTestSuite:
         """Test file parsing with sample data"""
         self.logger.info("Testing file parsing...")
         
-        file_loader = FileLoader()
+        # Use the same path where the file was created
         csv_path = os.path.join(self.test_data_dir, "test_financial_data.csv")
         
+        # Verify file exists before trying to parse
+        if not os.path.exists(csv_path):
+            raise Exception(f"Test CSV file not found at {csv_path}")
+        
+        # Verify file has content
+        if os.path.getsize(csv_path) == 0:
+            raise Exception(f"Test CSV file is empty at {csv_path}")
+        
+        file_loader = FileLoader()
         result = file_loader.load_file(csv_path)
         
         assert 'data' in result
         assert len(result['data']) > 0
         
-        self.logger.info(f"✅ File parsing successful: {len(result['data'])} records parsed")
+        self.logger.info(f"File parsing successful: {len(result['data'])} records parsed")
         self.test_results['phase_2']['details'].append(f"File parsing: PASSED ({len(result['data'])} records)")
 
     # Phase 3 Tests
