@@ -49,7 +49,7 @@ coverage.xml
 # Jupyter Notebook
 .ipynb_checkpoints
 
-# Environments
+# Environment variables
 .env
 .venv
 env/
@@ -58,51 +58,86 @@ ENV/
 env.bak/
 venv.bak/
 
-# VSCode
-.vscode/
-*.code-workspace
-
-# PyCharm
+# IDE Files
+.vscode/settings.json
+.vscode/launch.json
 .idea/
+*.swp
+*.swo
+*~
+*.code-workspace
 *.iml
 *.iws
 *.ipr
 
-# Project specific - Large files and model data
-models/
-models/**/*
-**/*.bin
-**/*.onnx
-**/*.safetensors
-**/*.pt
-**/*.ckpt
-**/*.pth
-**/*.h5
-**/*.gguf
-**/*.h5
-**/checkpoint*/
-
-# HuggingFace cache
-.huggingface/
-.cache/
-**/__pycache__/
-**/*.py[cod]
-
-# Generated files and logs
-logs/
-*.log
-*.csv
-!data/test_budget.csv
-*/wandb/
-wandb/
+# OS Files
 .DS_Store
-*.png
-*.jpg
-*.jpeg
-*.pdf
-!docs/*.pdf
-!examples/*.pdf
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
 
-# Keep main.ipynb but ignore other notebooks
-# *.ipynb
-# !main.ipynb
+# User Data - Keep financial data private
+data/input/*.csv
+data/input/*.xlsx
+data/input/*.xls
+data/input/*.pdf
+
+# Generated Output - Analysis results
+data/output/*.png
+data/output/*.jpg
+data/output/*.jpeg
+data/output/*.pdf
+data/output/*.html
+data/output/visualizations/*.png
+data/output/visualizations/*.jpg
+data/output/visualizations/*.pdf
+
+# System Logs
+system_validation.log
+*.log
+logs/
+
+# Model Files (if downloaded locally)
+models/*.bin
+models/*.safetensors
+models/*.gguf
+models/*.pth
+models/*.pt
+models/*.ckpt
+models/*.h5
+models/*.onnx
+
+# HuggingFace and ML Cache
+.huggingface/
+.cache/huggingface/
+checkpoint*/
+wandb/
+
+# Temporary Files
+*.tmp
+*.temp
+*.bak
+*.backup
+
+# Demo and Test Files (all cleaned up)
+demo*.py
+*demo.*
+*_demo.*
+test_*.csv
+sample_*.csv
+*_test.*
+*_sample.*
+
+# Keep essential files
+!test_setup.py
+!requirements.txt
+!README.md
+!LICENSE
+!.gitignore
+!main.ipynb
+
+# Allow empty directories with gitkeep
+!.gitkeep
